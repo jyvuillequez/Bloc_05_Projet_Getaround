@@ -1,0 +1,10 @@
+mlflow==3.5.1
+boto3
+pandas 
+gunicorn 
+streamlit 
+scikit-learn
+matplotlib 
+seaborn 
+plotly
+psycopg2-binary

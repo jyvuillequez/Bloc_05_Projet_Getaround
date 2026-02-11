@@ -1,0 +1,41 @@
+# === Fichiers systèmes ===
+.DS_Store
+Thumbs.db
+
+# === Environnements virtuels ===
+venv/
+.env/
+*.env
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# === Notebooks Jupyter ===
+.ipynb_checkpoints/
+
+# === Données volumineuses ===
+*.zip
+*.7z
+*.tar
+*.gz
+*.parquet
+*.h5
+
+# === Logs ===
+logs/
+*.log
+
+# === IDE / éditeurs ===
+.vscode/
+.idea/
+*.code-workspace
+
+# === OS / divers ===
+~$*
+
+# === Fichiers spécifiques à  MLflow ===
+mlflow_data/
+mlruns/
