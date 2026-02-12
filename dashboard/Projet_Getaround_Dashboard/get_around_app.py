@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
 
 st.set_page_config(page_title="Getaround Dashboard", layout="wide")
 st.title("Getaround Dashboard")
@@ -34,7 +35,11 @@ df_price = pd.read_csv(PRICING_PATH)
 
 # NAVIGATION
 st.sidebar.header("Navigation")
-page = st.sidebar.radio("Menu", ["Analyse des délais", "Analyse du prix", "Seuil entre locations"], index=0)
+page = st.sidebar.radio(
+    "Menu",
+    ["Analyse des délais", "Analyse du prix", "Seuil entre locations", "Prédiction du prix"],
+    index=0
+)
 
 # PAGE 1 — EDA DELAY
 if page == "Analyse des délais":
@@ -76,7 +81,6 @@ if page == "Analyse des délais":
         k1.metric("Impact rate (global)", f"{impact_rate_all:.1f}%")
         k2.metric("Impact rate (parmi les retards)", f"{impact_rate_late:.1f}%")
 
-        # Impact par flow (bar groupée)
         tmp = []
         for flow, g in chain.groupby("checkin_type"):
             tmp.append({
@@ -150,10 +154,9 @@ elif page == "Analyse du prix":
         )
 
 # PAGE 3 — TRADE-OFF
-else:
+elif page == "Seuil entre locations":
     st.subheader("Seuil entre locations")
 
-    # Inputs simples
     scope = st.sidebar.radio("Scope", ["all", "connect"], index=0)
     T = st.sidebar.slider("Seuil T (min)", 0, 120, 45, step=15)
 
@@ -161,7 +164,6 @@ else:
     if scope == "connect":
         d = d[d["checkin_type"] == "connect"].copy()
 
-    # Simulation simple (table)
     n_total = len(d)
     n_problematic = int(d["problematic"].sum())
 
@@ -179,21 +181,18 @@ else:
         })
     sim = pd.DataFrame(rows)
 
-    # KPIs au seuil sélectionné
     r = sim.set_index("T").loc[T]
     pct_aff = float(r["pct_affected"])
     n_aff = int(r["n_affected"])
     pct_solved = float(r["pct_solved_of_problematic"])
     n_solved = int(r["n_solved"])
 
-    # Cards KPI
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("% locations affectées", f"{pct_aff:.1f}%")
     c2.metric("locations affectées", f"{n_aff:,}".replace(",", " "))
     c3.metric("% cas problématiques résolus", f"{pct_solved:.1f}%")
     c4.metric("cas résolus", f"{n_solved:,}".replace(",", " "))
 
-    # Messages explicites (ce que tu voulais)
     lab = "All" if scope == "all" else "Connect"
 
     st.success(
@@ -213,7 +212,6 @@ else:
         "Le % locations affectées est un proxy d'impact revenu."
     )
 
-    # Graph 1 : trade-off (2 courbes)
     fig1 = go.Figure()
     fig1.add_trace(go.Scatter(x=sim["T"], y=sim["pct_solved_of_problematic"], mode="lines+markers", name="% cas résolus"))
     fig1.add_trace(go.Scatter(x=sim["T"], y=sim["pct_affected"], mode="lines+markers", name="% locations affectées", yaxis="y2"))
@@ -224,7 +222,6 @@ else:
         yaxis2=dict(title="% locations affectées", overlaying="y", side="right")
     )
 
-    # Graph 2 : volume résolu par flow + coût (% affectées)
     tmp = []
     for t in THRESHOLDS:
         for flow, g in chain.groupby("checkin_type"):
@@ -256,3 +253,80 @@ else:
         st.plotly_chart(fig1, use_container_width=True)
     with right:
         st.plotly_chart(fig2, use_container_width=True)
+
+# PAGE 4 — API PREDICTION
+elif page == "Prédiction du prix":
+    st.subheader("Prédiction du prix de location")
+
+    FEATURE_ORDER = [
+        "model_key",
+        "mileage",
+        "engine_power",
+        "fuel",
+        "paint_color",
+        "car_type",
+        "private_parking_available",
+        "has_gps",
+        "has_air_conditioning",
+        "automatic_car",
+        "has_getaround_connect",
+        "has_speed_regulator",
+        "winter_tires",
+    ]
+
+    API_URL = "https://jyvuillequez-projet-getaround-api.hf.space/predict"
+
+    st.caption(f"API utilisée : {API_URL}")
+
+    with st.form("prediction_form"):
+        model_key = st.selectbox("Modèle de voiture", ["Peugeot", "Audi", "BMW"])
+        mileage = st.number_input("Kilométrage", value=50000, step=1000)
+        engine_power = st.number_input("Puissance moteur", value=100, step=5)
+        fuel = st.selectbox("Type de carburant", ["diesel", "petrol", "electric", "hybrid"])
+        paint_color = st.selectbox("Couleur", ["black", "white", "grey", "blue", "red"])
+        car_type = st.selectbox("Type de voiture", ["sedan", "convertible", "suv", "coupe"])
+
+        private_parking_available = st.checkbox("Parking privé disponible", value=True)
+        has_gps = st.checkbox("GPS", value=True)
+        has_air_conditioning = st.checkbox("Climatisation", value=True)
+        automatic_car = st.checkbox("Boîte automatique", value=True)
+        has_getaround_connect = st.checkbox("Getaround Connect", value=True)
+        has_speed_regulator = st.checkbox("Régulateur de vitesse", value=True)
+        winter_tires = st.checkbox("Pneus hiver", value=True)
+
+        submitted = st.form_submit_button("Prédire le prix")
+
+    if submitted:
+        row_dict = {
+            "model_key": model_key,
+            "mileage": int(mileage),
+            "engine_power": int(engine_power),
+            "fuel": fuel,
+            "paint_color": paint_color,
+            "car_type": car_type,
+            "private_parking_available": bool(private_parking_available),
+            "has_gps": bool(has_gps),
+            "has_air_conditioning": bool(has_air_conditioning),
+            "automatic_car": bool(automatic_car),
+            "has_getaround_connect": bool(has_getaround_connect),
+            "has_speed_regulator": bool(has_speed_regulator),
+            "winter_tires": bool(winter_tires),
+        }
+
+        row_list = [row_dict[col] for col in FEATURE_ORDER]
+        payload = {"input": [row_list]}
+
+        try:
+            r = requests.post(API_URL, json=payload, timeout=20)
+            if r.status_code == 200:
+                pred = r.json()["prediction"][0]
+                st.success(f"Prix estimé : **{pred:.2f} € / jour**")
+            else:
+                st.error(f"Erreur {r.status_code}")
+                st.code(r.text)
+                with st.expander("Payload envoyé"):
+                    st.json(payload)
+        except requests.exceptions.RequestException as e:
+            st.error(f"Erreur lors de la requête : {e}")
+            with st.expander("Payload envoyé"):
+                st.json(payload)
