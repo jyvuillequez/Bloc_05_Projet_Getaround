@@ -32,6 +32,7 @@ chain["friction_min"] = (chain["delay_pos"] - chain["gap"]).clip(lower=0)
 
 # pricing
 df_price = pd.read_csv(PRICING_PATH)
+order = df_price["model_key"].value_counts().index.tolist()
 
 # NAVIGATION
 st.sidebar.header("Navigation")
@@ -69,7 +70,7 @@ if page == "Analyse des délais":
     with col2:
         st.plotly_chart(
             px.histogram(chain, x="gap", nbins=80,
-                         title="Distribution du gap (temps tampon) entre locations",
+                         title="Distribution du gap (zone tampon) entre locations",
                          labels={"gap": "Gap (min)"}),
             use_container_width=True
         )
@@ -78,8 +79,8 @@ if page == "Analyse des délais":
         impact_rate_late = chain.loc[chain["is_late"], "impact_next"].mean() * 100
 
         k1, k2 = st.columns(2)
-        k1.metric("Impact rate (global)", f"{impact_rate_all:.1f}%")
-        k2.metric("Impact rate (parmi les retards)", f"{impact_rate_late:.1f}%")
+        k1.metric("% de locations impactées (global)", f"{impact_rate_all:.1f}%")
+        k2.metric("% de locations impactées (si retard)", f"{impact_rate_late:.1f}%")
 
         tmp = []
         for flow, g in chain.groupby("checkin_type"):
@@ -96,17 +97,16 @@ if page == "Analyse des délais":
             var_name="metric", value_name="rate"
         )
 
-        st.plotly_chart(
-            px.bar(impact_long, x="flow", y="rate", color="metric", barmode="group",
-                   title="Impact sur la location suivante (%) par flow",
-                   labels={"flow": "Flow", "rate": "Taux (%)", "metric": ""}),
-            use_container_width=True
-        )
+        metric_labels = {
+        "impact_all": "Global (toutes locations)",
+        "impact_among_late": "Parmi les retards",
+        }
+        impact_long["metric"] = impact_long["metric"].map(metric_labels)
 
         st.plotly_chart(
-            px.histogram(chain[chain["impact_next"]], x="friction_min", nbins=60,
-                         title="Minutes de friction (quand impact_next=True)",
-                         labels={"friction_min": "Minutes"}),
+            px.bar(impact_long, x="flow", y="rate", color="metric", barmode="group",
+                   title="Impact sur la location suivante (%) par canal",
+                   labels={"flow": "Canal", "rate": "Taux (%)", "metric": ""}),
             use_container_width=True
         )
 
@@ -118,6 +118,14 @@ elif page == "Analyse du prix":
         px.histogram(df_price, x="rental_price_per_day", nbins=60,
                      title="Distribution du prix journalier",
                      labels={"rental_price_per_day": "€ / jour"}),
+        use_container_width=True
+    )
+
+    st.plotly_chart(
+        px.histogram(df_price, x="model_key",
+                     title="Distribution des marques",
+                     labels={"model_key": "Marque"},
+                     category_orders={"model_key": order}),
         use_container_width=True
     )
 
