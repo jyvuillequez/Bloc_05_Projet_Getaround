@@ -18,9 +18,7 @@ import mlflow.sklearn
 from dotenv import load_dotenv
 import os
 
-# -----------------------------
 # Config
-# -----------------------------
 load_dotenv()
 
 API_KEY_S3 = os.environ["AWS_ACCESS_KEY_ID"]
@@ -44,9 +42,7 @@ MODEL_FILENAME = "pricing_ridge.joblib"
 SCHEMA_FILENAME = "schema.json"
 
 
-# -----------------------------
-# Helpers
-# -----------------------------
+# Cleaning
 def rmse(y_true, y_pred) -> float:
     return float(np.sqrt(mean_squared_error(y_true, y_pred)))
 
@@ -98,9 +94,7 @@ def build_preprocess(X: pd.DataFrame) -> ColumnTransformer:
     )
 
 
-# -----------------------------
 # Main
-# -----------------------------
 def main():
     # MLflow init
     mlflow.set_tracking_uri(TRACKING_URI)
@@ -117,7 +111,7 @@ def main():
     y = df[TARGET].astype(float)
     X = df.drop(columns=[TARGET])
 
-    # optional: cap outliers on numeric features
+   
     num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
     if CAP_OUTLIERS and num_cols:
         X = cap_outliers_p99(X, num_cols)
@@ -134,7 +128,7 @@ def main():
         ("model", model),
     ])
 
-    # target transform
+    # target
     if USE_LOG_TARGET:
         y_train_fit = np.log1p(y_train)
         y_test_eval = y_test
@@ -160,12 +154,11 @@ def main():
         pred_train = pipe.predict(X_train)
         pred_test = pipe.predict(X_test)
 
-        # inverse transform if log
         if USE_LOG_TARGET:
             pred_train = np.expm1(pred_train)
             pred_test = np.expm1(pred_test)
 
-        # Metrics
+        # Metriques
         metrics = {
             "rmse_train": rmse(y_train, pred_train),
             "rmse_test": rmse(y_test_eval, pred_test),
@@ -176,7 +169,7 @@ def main():
         for k, v in metrics.items():
             mlflow.log_metric(k, v)
 
-        # Export artifacts (servable)
+        # Export artifacts
         os.makedirs(EXPORT_DIR, exist_ok=True)
 
         model_path = os.path.join(EXPORT_DIR, MODEL_FILENAME)
@@ -190,11 +183,10 @@ def main():
         with open(schema_path, "w", encoding="utf-8") as f:
             json.dump(schema, f, indent=2)
 
-        # Log artifacts to MLflow
+        # Log artifacts MLflow
         mlflow.log_artifact(model_path, artifact_path="export")
         mlflow.log_artifact(schema_path, artifact_path="export")
 
-        # Also log MLflow model format (optionnel mais propre)
         mlflow.sklearn.log_model(pipe, artifact_path="model")
 
         print("MLflow tracking URI:", TRACKING_URI)

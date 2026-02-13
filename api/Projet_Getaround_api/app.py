@@ -12,12 +12,12 @@ Getaround Pricing API - Estimation du prix de location
 Cette API permet d’estimer le prix de location journalier d’un véhicule à partir de ses caractéristiques.
 
 - GET /
-Endpoint d’accueil : vérifie que l’API fonctionne et affiche les informations utiles pour démarrer (statut, modèle chargé, etc.).
+Endpoint d’accueil : vérification que l’API fonctionne et affiche les informations utiles pour démarrer (statut, modèle chargé, etc.).
 
 - POST /predict
-Endpoint de prédiction : envoie les caractéristiques du véhicule au format JSON et récupère en réponse une estimation du prix par jour.
+Endpoint de prédiction : envoi des caractéristiques du véhicule au format JSON et récupère en réponse une estimation du prix par jour.
 
-Pour obtenir une prédiction, utilise /predict avec une requête POST contenant les données du véhicule au format attendu.
+Pour obtenir une prédiction, utilisation du /predict avec une requête POST contenant les données du véhicule au format attendu.
 
 Format attendu pour /predict :
 `{"input": [[...], [...]]}` où chaque ligne respecte l’ordre des colonnes.
